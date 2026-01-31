@@ -1,0 +1,35 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Work+Sans:wght@300;400;500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --ct-bg: #f7f3ed;
+  --ct-ink: #1a1c1e;
+  --ct-ink-muted: #5a5f64;
+  --ct-card: #fffaf2;
+  --ct-border: #e2d8c8;
+  --ct-accent: #0b6b64;
+  --ct-accent-strong: #064b47;
+  --ct-accent-soft: #e3f1ee;
+  --ct-warm: #f0c987;
+  --ct-warm-strong: #df9d3d;
+  --ct-font-body: "Work Sans", "Segoe UI", Tahoma, sans-serif;
+  --ct-font-display: "DM Serif Display", "Georgia", serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--ct-bg);
+  color: var(--ct-ink);
+  font-family: var(--ct-font-body);
+}
+
+#root {
+  min-height: 100vh;
+}

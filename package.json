@@ -1,0 +1,16 @@
+{
+  "name": "civictrack",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "concurrently -n API,WEB,CHECK -c green,cyan,magenta \"npm -w @civictrack/api run dev\" \"npm -w @civictrack/web run dev\" \"npm run dev:check\"",
+    "dev:api": "npm -w @civictrack/api run dev",
+    "dev:web": "npm -w @civictrack/web run dev",
+    "dev:check": "wait-on http://localhost:4000/health http://localhost:5173 && node -e \"console.log('OK Back levantado'); console.log('OK Front levantado')\"",
+    "build": "npm -w @civictrack/api run build && npm -w @civictrack/web run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "wait-on": "^8.0.3"
+  }
+}
