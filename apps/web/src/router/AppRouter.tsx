@@ -5,9 +5,13 @@ import MapPublic from "../pages/MapPublic";
 import NotFound from "../pages/NotFound";
 import Login from "../pages/Login";
 import Unauthorized from "../pages/Unauthorized";
-import Admin from "../pages/Admin";
+import AdminInbox from "../pages/AdminInbox";
+import AdminReportDetail from "../pages/AdminReportDetail";
 import NewReport from "../pages/NewReport";
 import ReportCreated from "../pages/ReportCreated";
+import TrackReport from "../pages/TrackReport";
+import ReportDetail from "../pages/ReportDetail";
+import MyReports from "../pages/MyReports";
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
 
@@ -20,11 +24,15 @@ const AppRouter = () => {
           <Route path="/map" element={<MapPublic />} />
           <Route path="/report/new" element={<NewReport />} />
           <Route path="/report/created/:id" element={<ReportCreated />} />
+          <Route path="/track" element={<TrackReport />} />
+          <Route path="/reports/:id" element={<ReportDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
           <Route element={<ProtectedRoute />}>
-            <Route element={<RoleRoute roles={["ADMIN"]} />}>
-              <Route path="/admin" element={<Admin />} />
+            <Route path="/my-reports" element={<MyReports />} />
+            <Route element={<RoleRoute roles={["ADMIN", "OPERATOR", "SUPERVISOR"]} />}>
+              <Route path="/admin" element={<AdminInbox />} />
+              <Route path="/admin/reports/:id" element={<AdminReportDetail />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />

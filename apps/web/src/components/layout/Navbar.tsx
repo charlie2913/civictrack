@@ -42,6 +42,9 @@ const Navbar = () => {
           <NavLink to="/map" className={navLinkClass}>
             Mapa
           </NavLink>
+          <NavLink to="/track" className={navLinkClass}>
+            Rastrear
+          </NavLink>
           <NavLink
             to="/report/new"
             className="rounded-full bg-[var(--ct-accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--ct-accent-strong)]"
@@ -57,6 +60,20 @@ const Navbar = () => {
               <span className="rounded-full border border-[var(--ct-border)] px-3 py-2 text-xs font-semibold text-[var(--ct-ink-muted)]">
                 {user.email}
               </span>
+              {["ADMIN", "OPERATOR", "SUPERVISOR"].includes(user.role) && (
+                <NavLink
+                  to="/admin"
+                  className="rounded-full border border-[var(--ct-border)] px-3 py-2 text-xs font-semibold text-[var(--ct-ink-muted)] transition hover:border-[var(--ct-accent)] hover:text-[var(--ct-accent-strong)]"
+                >
+                  Admin
+                </NavLink>
+              )}
+              <NavLink
+                to="/my-reports"
+                className="rounded-full border border-[var(--ct-border)] px-3 py-2 text-xs font-semibold text-[var(--ct-ink-muted)] transition hover:border-[var(--ct-accent)] hover:text-[var(--ct-accent-strong)]"
+              >
+                Mis reportes
+              </NavLink>
               <button
                 type="button"
                 onClick={handleLogout}
