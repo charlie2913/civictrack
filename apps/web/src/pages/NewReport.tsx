@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import { useAuth } from "../context/AuthContext";
 import PhotoUploader from "../components/reports/PhotoUploader";
+import Modal from "../components/ui/Modal";
+import MapPicker from "../components/reports/MapPicker";
 
 type Category = "BACHE" | "LUMINARIA" | "VEREDA" | "DRENAJE";
 type PreviewItem = { file: File; previewUrl: string };
@@ -31,6 +33,7 @@ const NewReport = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const descriptionCount = useMemo(() => description.trim().length, [description]);
 
@@ -48,6 +51,15 @@ const NewReport = () => {
     setError(null);
     setStep((prev) => Math.max(prev - 1, 1));
   };
+
+  const hasUnsavedData =
+    Boolean(category) ||
+    Boolean(description.trim()) ||
+    Boolean(lat) ||
+    Boolean(lng) ||
+    Boolean(addressText.trim()) ||
+    Boolean(reporterEmail.trim()) ||
+    selectedFiles.length > 0;
 
   const validateStep = (currentStep: number) => {
     if (currentStep === 1) {
@@ -159,7 +171,10 @@ const NewReport = () => {
         }
       }
 
-      navigate(`/report/created/${data.id}`, { replace: true });
+      navigate(`/report/created/${data.id}`, {
+        replace: true,
+        state: { reporterEmail: user ? undefined : reporterEmail.trim().toLowerCase() },
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error inesperado";
       setError(message);
@@ -222,6 +237,19 @@ const NewReport = () => {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-10">
+      <Modal
+        open={showCancelConfirm}
+        title="Cancelar reporte"
+        description="¿Seguro que deseas salir? Perderas la informacion ingresada."
+        onClose={() => setShowCancelConfirm(false)}
+        primaryLabel="Salir"
+        secondaryLabel="Continuar"
+        intent="warning"
+        onPrimary={() => {
+          setShowCancelConfirm(false);
+          navigate("/", { replace: true });
+        }}
+      />
       <header className="space-y-3 text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]">
           Nuevo reporte
@@ -305,6 +333,14 @@ const NewReport = () => {
                   {isLocating ? "Buscando..." : "Usar mi ubicacion"}
                 </button>
               </div>
+              <MapPicker
+                lat={lat ? Number(lat) : null}
+                lng={lng ? Number(lng) : null}
+                onChange={(nextLat, nextLng) => {
+                  setLat(nextLat.toFixed(6));
+                  setLng(nextLng.toFixed(6));
+                }}
+              />
               {!user && (
                 <div className="space-y-2">
                   <label className="text-sm font-semibold">Correo</label>
@@ -360,6 +396,7 @@ const NewReport = () => {
                 previews={previews}
                 onFilesSelected={handleFilesSelected}
                 onRemove={handleRemoveFile}
+                confirmRemove
               />
             </div>
           )}
@@ -414,6 +451,19 @@ const NewReport = () => {
               className="rounded-full border border-[var(--ct-border)] px-6 py-3 text-sm font-semibold text-[var(--ct-ink-muted)] transition hover:border-[var(--ct-accent)] hover:text-[var(--ct-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               Volver
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (hasUnsavedData) {
+                  setShowCancelConfirm(true);
+                } else {
+                  navigate("/", { replace: true });
+                }
+              }}
+              className="rounded-full border border-[var(--ct-border)] px-6 py-3 text-sm font-semibold text-[var(--ct-ink-muted)] transition hover:border-[var(--ct-accent)] hover:text-[var(--ct-accent-strong)]"
+            >
+              Cancelar
             </button>
             {step < 4 ? (
               <button

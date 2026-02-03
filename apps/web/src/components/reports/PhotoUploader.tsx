@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import Modal from "../ui/Modal";
 
 type PreviewItem = {
   file: File;
@@ -9,10 +10,17 @@ type PhotoUploaderProps = {
   previews: PreviewItem[];
   onFilesSelected: (files: FileList | null) => void;
   onRemove: (file: File) => void;
+  confirmRemove?: boolean;
 };
 
-const PhotoUploader = ({ previews, onFilesSelected, onRemove }: PhotoUploaderProps) => {
+const PhotoUploader = ({
+  previews,
+  onFilesSelected,
+  onRemove,
+  confirmRemove = false,
+}: PhotoUploaderProps) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<File | null>(null);
 
   const handlePick = () => {
     inputRef.current?.click();
@@ -20,6 +28,21 @@ const PhotoUploader = ({ previews, onFilesSelected, onRemove }: PhotoUploaderPro
 
   return (
     <div className="space-y-4">
+      <Modal
+        open={Boolean(pendingRemove)}
+        title="Quitar evidencia"
+        description="¿Seguro que deseas quitar esta foto? Esta accion no se puede deshacer."
+        onClose={() => setPendingRemove(null)}
+        primaryLabel="Quitar"
+        secondaryLabel="Cancelar"
+        intent="warning"
+        onPrimary={() => {
+          if (pendingRemove) {
+            onRemove(pendingRemove);
+          }
+          setPendingRemove(null);
+        }}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -58,7 +81,13 @@ const PhotoUploader = ({ previews, onFilesSelected, onRemove }: PhotoUploaderPro
                 <span className="truncate">{item.file.name}</span>
                 <button
                   type="button"
-                  onClick={() => onRemove(item.file)}
+                  onClick={() => {
+                    if (confirmRemove) {
+                      setPendingRemove(item.file);
+                      return;
+                    }
+                    onRemove(item.file);
+                  }}
                   className="rounded-full border border-[var(--ct-border)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)] transition hover:border-red-300 hover:text-red-600"
                 >
                   Quitar

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
+import PriorityBadge from "../components/common/PriorityBadge";
 
 type ReportItem = {
   id: string;
@@ -8,6 +9,7 @@ type ReportItem = {
   status: string;
   createdAt: string;
   addressText?: string;
+  effectivePriority?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 };
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
@@ -18,6 +20,7 @@ const AdminInbox = () => {
   const [items, setItems] = useState<ReportItem[]>([]);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [priorityFilter, setPriorityFilter] = useState("ALL");
   const [query, setQuery] = useState("");
 
   const categories = useMemo(
@@ -37,6 +40,7 @@ const AdminInbox = () => {
       if (statusFilter !== "ALL") url.searchParams.set("status", statusFilter);
       if (categoryFilter !== "ALL") url.searchParams.set("category", categoryFilter);
       if (query.trim()) url.searchParams.set("q", query.trim());
+      if (priorityFilter !== "ALL") url.searchParams.set("priority", priorityFilter);
 
       const response = await fetch(url.toString(), {
         credentials: "include",
@@ -69,7 +73,7 @@ const AdminInbox = () => {
 
     load();
     return () => controller.abort();
-  }, [statusFilter, categoryFilter, query]);
+  }, [statusFilter, categoryFilter, priorityFilter, query]);
 
   if (loading) {
     return (
@@ -123,6 +127,17 @@ const AdminInbox = () => {
             </option>
           ))}
         </select>
+        <select
+          value={priorityFilter}
+          onChange={(event) => setPriorityFilter(event.target.value)}
+          className="rounded-full border border-[var(--ct-border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]"
+        >
+          <option value="ALL">Todas las prioridades</option>
+          <option value="LOW">LOW</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="HIGH">HIGH</option>
+          <option value="CRITICAL">CRITICAL</option>
+        </select>
         <input
           type="text"
           value={query}
@@ -149,6 +164,9 @@ const AdminInbox = () => {
               <p className="mt-2 text-base font-semibold text-[var(--ct-ink)]">
                 Estado: {item.status}
               </p>
+              <div className="mt-2">
+                <PriorityBadge priority={item.effectivePriority} />
+              </div>
               {item.addressText && <p className="mt-2">{item.addressText}</p>}
               <p className="mt-2 text-xs">
                 {new Date(item.createdAt).toLocaleString()}

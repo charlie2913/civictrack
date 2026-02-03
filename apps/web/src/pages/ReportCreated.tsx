@@ -6,6 +6,8 @@ const ReportCreated = () => {
   const uploadError = Boolean(
     (location.state as { uploadError?: boolean } | null)?.uploadError,
   );
+  const reporterEmail = (location.state as { reporterEmail?: string } | null)
+    ?.reporterEmail;
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
@@ -28,7 +30,11 @@ const ReportCreated = () => {
       </div>
       <div className="flex flex-col gap-3 sm:flex-row">
         <Link
-          to="/map"
+          to={
+            reporterEmail
+              ? `/map?reportId=${id}&email=${encodeURIComponent(reporterEmail)}`
+              : `/map?reportId=${id ?? ""}`
+          }
           className="inline-flex items-center justify-center rounded-full border border-[var(--ct-border)] bg-white/80 px-6 py-3 text-sm font-semibold text-[var(--ct-ink)] transition hover:border-[var(--ct-accent)] hover:text-[var(--ct-accent-strong)]"
         >
           Ver mapa

@@ -13,7 +13,11 @@ type ReportDetailData = {
   createdAt: string;
   addressText?: string;
   photoUrls?: string[];
-  statusHistory?: { status: string; at: string; by?: string | null }[];
+  statusHistory?: {
+    status: string;
+    at: string;
+    by?: { _id?: string; email?: string; role?: string } | string | null;
+  }[];
 };
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
@@ -85,6 +89,12 @@ const ReportDetail = () => {
     return () => controller.abort();
   }, [id, emailQuery, user]);
 
+  useEffect(() => {
+    return () => {
+      previews.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    };
+  }, [previews]);
+
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -113,12 +123,6 @@ const ReportDetail = () => {
     (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
   );
   const canUpload = report.status !== FINAL_STATUS;
-
-  useEffect(() => {
-    return () => {
-      previews.forEach((item) => URL.revokeObjectURL(item.previewUrl));
-    };
-  }, [previews]);
 
   const handleFilesSelected = (files: FileList | null) => {
     if (!files) return;
@@ -275,6 +279,7 @@ const ReportDetail = () => {
                 previews={previews}
                 onFilesSelected={handleFilesSelected}
                 onRemove={handleRemoveFile}
+                confirmRemove
               />
               {uploadError && (
                 <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -313,7 +318,14 @@ const ReportDetail = () => {
                     {new Date(item.at).toLocaleString()}
                   </p>
                   {item.by && (
-                    <p className="text-xs text-[var(--ct-ink-muted)]">by: {item.by}</p>
+                    <p className="text-xs text-[var(--ct-ink-muted)]">
+                      by:{" "}
+                      {typeof item.by === "string"
+                        ? item.by
+                        : item.by.email
+                          ? `${item.by.email}${item.by.role ? ` (${item.by.role})` : ""}`
+                          : item.by._id}
+                    </p>
                   )}
                 </div>
               ))}

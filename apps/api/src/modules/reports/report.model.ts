@@ -38,6 +38,12 @@ const reportSchema = new Schema(
     status: { type: String, default: "RECEIVED" },
     statusHistory: { type: [statusHistorySchema], default: [] },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    impact: { type: Number, min: 1, max: 5 },
+    urgency: { type: Number, min: 1, max: 5 },
+    priority: { type: String, enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    priorityOverride: { type: String, enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    priorityUpdatedAt: { type: Date },
+    priorityUpdatedBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true },
 );

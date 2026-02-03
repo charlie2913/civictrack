@@ -16,6 +16,14 @@ const TrackReport = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reportIdParam = params.get("reportId");
+    if (reportIdParam) {
+      setReportId(reportIdParam);
+    }
+  }, []);
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);

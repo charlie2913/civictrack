@@ -10,6 +10,8 @@ import authRoutes from "./routes/auth";
 import User from "./models/User";
 import reportRoutes from "./modules/reports/report.routes";
 import { uploadsPath } from "./modules/reports/uploads";
+import { requireAuth, requireRole } from "./middleware/auth";
+import { listAdminMapReports, listAdminReports } from "./modules/reports/report.controller";
 
 dotenv.config();
 
@@ -33,6 +35,18 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use("/uploads", express.static(uploadsPath));
 app.use("/api/auth", authRoutes);
 app.use("/api/reports", reportRoutes);
+app.get(
+  "/api/admin/reports",
+  requireAuth,
+  requireRole("ADMIN", "OPERATOR", "SUPERVISOR"),
+  listAdminReports,
+);
+app.get(
+  "/api/admin/reports/map",
+  requireAuth,
+  requireRole("ADMIN", "OPERATOR", "SUPERVISOR"),
+  listAdminMapReports,
+);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 const MONGODB_URI =
