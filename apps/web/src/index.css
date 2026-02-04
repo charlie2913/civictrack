@@ -33,3 +33,24 @@ body {
 #root {
   min-height: 100vh;
 }
+
+.map-public-bg {
+  background-image: linear-gradient(
+      rgba(247, 243, 237, 0.92),
+      rgba(247, 243, 237, 0.92)
+    ),
+    url("/map-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.leaflet-top.leaflet-left {
+  left: auto;
+  right: 16px;
+}
+
+.leaflet-control-zoom {
+  margin-top: 16px;
+  margin-right: 16px;
+}
