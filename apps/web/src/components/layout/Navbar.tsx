@@ -61,12 +61,26 @@ const Navbar = () => {
                 {user.email}
               </span>
               {["ADMIN", "OPERATOR", "SUPERVISOR"].includes(user.role) && (
-                <NavLink
-                  to="/admin"
-                  className="rounded-full border border-[var(--ct-border)] px-3 py-2 text-xs font-semibold text-[var(--ct-ink-muted)] transition hover:border-[var(--ct-accent)] hover:text-[var(--ct-accent-strong)]"
-                >
-                  Admin
-                </NavLink>
+                <>
+                  <NavLink
+                    to="/admin"
+                    className="rounded-full border border-[var(--ct-border)] px-3 py-2 text-xs font-semibold text-[var(--ct-ink-muted)] transition hover:border-[var(--ct-accent)] hover:text-[var(--ct-accent-strong)]"
+                  >
+                    Admin
+                  </NavLink>
+                  <NavLink
+                    to="/admin/metrics"
+                    className="rounded-full border border-[var(--ct-border)] px-3 py-2 text-xs font-semibold text-[var(--ct-ink-muted)] transition hover:border-[var(--ct-accent)] hover:text-[var(--ct-accent-strong)]"
+                  >
+                    Metricas
+                  </NavLink>
+                  <NavLink
+                    to="/admin/settings"
+                    className="rounded-full border border-[var(--ct-border)] px-3 py-2 text-xs font-semibold text-[var(--ct-ink-muted)] transition hover:border-[var(--ct-accent)] hover:text-[var(--ct-accent-strong)]"
+                  >
+                    Configuracion
+                  </NavLink>
+                </>
               )}
               <NavLink
                 to="/my-reports"

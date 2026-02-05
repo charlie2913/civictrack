@@ -641,6 +641,96 @@ export const listAdminMapReports = async (req: Request, res: Response) => {
   return res.json({ items, count: items.length });
 };
 
+const hoursDiff = (start: Date, end: Date) => {
+  const diffMs = end.getTime() - start.getTime();
+  return diffMs / (1000 * 60 * 60);
+};
+
+export const getAdminMetricsSummary = async (_req: Request, res: Response) => {
+  const [all, closed, byStatusAgg, byCategoryAgg] = await Promise.all([
+    Report.countDocuments({}),
+    Report.countDocuments({ status: "CLOSED" }),
+    Report.aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 } } },
+    ]),
+    Report.aggregate([
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const byStatus: Record<string, number> = {};
+  reportStatuses.forEach((status) => {
+    byStatus[status] = 0;
+  });
+  byStatusAgg.forEach((row: { _id: string; count: number }) => {
+    if (row._id) byStatus[row._id] = row.count;
+  });
+
+  const byCategory: Record<string, number> = {};
+  reportCategories.forEach((category) => {
+    byCategory[category] = 0;
+  });
+  byCategoryAgg.forEach((row: { _id: string; count: number }) => {
+    if (row._id) byCategory[row._id] = row.count;
+  });
+
+  const reportsForTimes = await Report.find({
+    "statusHistory.status": { $in: ["RECEIVED", "VERIFIED", "CLOSED"] },
+  })
+    .select("statusHistory")
+    .lean();
+
+  const mttaSamples: number[] = [];
+  const mttrSamples: number[] = [];
+
+  reportsForTimes.forEach((report) => {
+    const receivedAt = report.statusHistory
+      ?.filter((entry) => entry.status === "RECEIVED")
+      .map((entry) => new Date(entry.at))
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+
+    if (!receivedAt) return;
+
+    const verifiedAt = report.statusHistory
+      ?.filter((entry) => entry.status === "VERIFIED")
+      .map((entry) => new Date(entry.at))
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+
+    const closedAt = report.statusHistory
+      ?.filter((entry) => entry.status === "CLOSED")
+      .map((entry) => new Date(entry.at))
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+
+    if (verifiedAt) {
+      mttaSamples.push(hoursDiff(receivedAt, verifiedAt));
+    }
+    if (closedAt) {
+      mttrSamples.push(hoursDiff(receivedAt, closedAt));
+    }
+  });
+
+  const mttaHoursAvg =
+    mttaSamples.length > 0
+      ? mttaSamples.reduce((sum, value) => sum + value, 0) / mttaSamples.length
+      : null;
+  const mttrHoursAvg =
+    mttrSamples.length > 0
+      ? mttrSamples.reduce((sum, value) => sum + value, 0) / mttrSamples.length
+      : null;
+
+  return res.json({
+    totals: {
+      all,
+      open: all - closed,
+      closed,
+    },
+    byStatus,
+    byCategory,
+    mttaHoursAvg,
+    mttrHoursAvg,
+  });
+};
+
 const tile2bbox = (x: number, y: number, z: number) => {
   const n = Math.pow(2, z);
   const lng1 = (x / n) * 360 - 180;

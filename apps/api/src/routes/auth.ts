@@ -26,10 +26,14 @@ router.post("/login", async (req, res) => {
     return res.status(401).json({ error: "Credenciales invalidas" });
   }
 
+  if (!user.isActive) {
+    return res.status(403).json({ error: "Cuenta desactivada" });
+  }
+
   if (user.authMode === "GUEST" || !user.passwordHash) {
     return res.status(403).json({
       error:
-        "Esta cuenta fue creada solo con correo. Debe completar registro para iniciar sesión.",
+        "Esta cuenta fue creada solo con correo. Debe completar registro para iniciar sesion.",
     });
   }
 
@@ -50,6 +54,9 @@ router.post("/login", async (req, res) => {
     secure: process.env.NODE_ENV === "production",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
+
+  user.lastLoginAt = new Date();
+  await user.save();
 
   return res.json({ user: { id: user._id, email: user.email, role: user.role } });
 });

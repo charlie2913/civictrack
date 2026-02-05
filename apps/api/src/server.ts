@@ -7,11 +7,18 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import bcrypt from "bcryptjs";
 import authRoutes from "./routes/auth";
+import configRoutes from "./routes/config";
 import User from "./models/User";
+import SystemConfig from "./models/SystemConfig";
 import reportRoutes from "./modules/reports/report.routes";
 import { uploadsPath } from "./modules/reports/uploads";
 import { requireAuth, requireRole } from "./middleware/auth";
-import { listAdminMapReports, listAdminReports } from "./modules/reports/report.controller";
+import {
+  getAdminMetricsSummary,
+  listAdminMapReports,
+  listAdminReports,
+} from "./modules/reports/report.controller";
+import adminUsersRoutes from "./modules/admin/users/adminUsers.routes";
 
 dotenv.config();
 
@@ -34,6 +41,7 @@ app.use(cookieParser());
 app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use("/uploads", express.static(uploadsPath));
 app.use("/api/auth", authRoutes);
+app.use("/api", configRoutes);
 app.use("/api/reports", reportRoutes);
 app.get(
   "/api/admin/reports",
@@ -47,6 +55,13 @@ app.get(
   requireRole("ADMIN", "OPERATOR", "SUPERVISOR"),
   listAdminMapReports,
 );
+app.get(
+  "/api/admin/metrics/summary",
+  requireAuth,
+  requireRole("ADMIN", "OPERATOR", "SUPERVISOR"),
+  getAdminMetricsSummary,
+);
+app.use("/api/admin/users", adminUsersRoutes);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 const MONGODB_URI =
@@ -57,6 +72,12 @@ const ADMIN_PASSWORD = "Admin123*";
 async function start() {
   await mongoose.connect(MONGODB_URI);
   console.log("OK Mongo conectado");
+
+  const existingConfig = await SystemConfig.findOne();
+  if (!existingConfig) {
+    await SystemConfig.create({});
+    console.log("OK Config inicial creada");
+  }
 
   const existingAdmin = await User.findOne({ email: ADMIN_EMAIL });
   if (!existingAdmin) {

@@ -7,6 +7,13 @@ import Login from "../pages/Login";
 import Unauthorized from "../pages/Unauthorized";
 import AdminInbox from "../pages/AdminInbox";
 import AdminReportDetail from "../pages/AdminReportDetail";
+import AdminMetrics from "../pages/AdminMetrics";
+import SettingsHome from "../pages/SettingsHome";
+import UsersList from "../pages/UsersList";
+import UserDetail from "../pages/UserDetail";
+import AdminCatalogs from "../pages/AdminCatalogs";
+import AdminSystem from "../pages/AdminSystem";
+import AdminNotifications from "../pages/AdminNotifications";
 import NewReport from "../pages/NewReport";
 import ReportCreated from "../pages/ReportCreated";
 import TrackReport from "../pages/TrackReport";
@@ -32,6 +39,13 @@ const AppRouter = () => {
             <Route path="/my-reports" element={<MyReports />} />
             <Route element={<RoleRoute roles={["ADMIN", "OPERATOR", "SUPERVISOR"]} />}>
               <Route path="/admin" element={<AdminInbox />} />
+              <Route path="/admin/metrics" element={<AdminMetrics />} />
+              <Route path="/admin/settings" element={<SettingsHome />} />
+              <Route path="/admin/users" element={<UsersList />} />
+              <Route path="/admin/users/:id" element={<UserDetail />} />
+              <Route path="/admin/catalogs" element={<AdminCatalogs />} />
+              <Route path="/admin/system" element={<AdminSystem />} />
+              <Route path="/admin/notifications" element={<AdminNotifications />} />
               <Route path="/admin/reports/:id" element={<AdminReportDetail />} />
             </Route>
           </Route>

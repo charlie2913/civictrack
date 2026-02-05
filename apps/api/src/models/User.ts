@@ -8,11 +8,14 @@ export type AuthMode = (typeof authModes)[number];
 const userSchema = new Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    name: { type: String },
     passwordHash: { type: String },
     role: { type: String, enum: roles, required: true, default: "CITIZEN" },
     authMode: { type: String, enum: authModes, required: true, default: "PASSWORD" },
+    isActive: { type: Boolean, default: true },
+    lastLoginAt: { type: Date },
   },
-  { timestamps: { createdAt: true, updatedAt: false } },
+  { timestamps: true },
 );
 
 export type UserDocument = InferSchemaType<typeof userSchema> & { _id: string };
