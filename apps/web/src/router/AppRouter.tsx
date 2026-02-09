@@ -19,6 +19,7 @@ import ReportCreated from "../pages/ReportCreated";
 import TrackReport from "../pages/TrackReport";
 import ReportDetail from "../pages/ReportDetail";
 import MyReports from "../pages/MyReports";
+import Survey from "../pages/Survey";
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
 
@@ -33,6 +34,7 @@ const AppRouter = () => {
           <Route path="/report/created/:id" element={<ReportCreated />} />
           <Route path="/track" element={<TrackReport />} />
           <Route path="/reports/:id" element={<ReportDetail />} />
+          <Route path="/survey/:token" element={<Survey />} />
           <Route path="/login" element={<Login />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
           <Route element={<ProtectedRoute />}>

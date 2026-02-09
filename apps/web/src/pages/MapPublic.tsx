@@ -26,8 +26,49 @@ type MapItem = {
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
 
-const categories = ["BACHE", "LUMINARIA", "VEREDA", "DRENAJE"] as const;
+const defaultCategories = ["BACHE", "LUMINARIA", "VEREDA", "DRENAJE"] as const;
 const priorities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
+
+const defaultCategoryLabels: Record<string, string> = {
+  BACHE: "Bache",
+  LUMINARIA: "Luminaria",
+  VEREDA: "Vereda",
+  DRENAJE: "Drenaje",
+};
+
+const defaultCategoryColors: Record<string, string> = {
+  BACHE: "#ef4444",
+  LUMINARIA: "#f59e0b",
+  VEREDA: "#10b981",
+  DRENAJE: "#3b82f6",
+};
+
+const fallbackPalette = [
+  "#0ea5e9",
+  "#14b8a6",
+  "#f97316",
+  "#8b5cf6",
+  "#22c55e",
+  "#f43f5e",
+  "#eab308",
+];
+
+const labelForCategory = (category: string) =>
+  defaultCategoryLabels[category] ?? category;
+
+const lng2tile = (lng: number, z: number) => {
+  const n = Math.pow(2, z);
+  return Math.floor(((lng + 180) / 360) * n);
+};
+
+const lat2tile = (lat: number, z: number) => {
+  const n = Math.pow(2, z);
+  const rad = (lat * Math.PI) / 180;
+  return Math.floor(((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * n);
+};
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
 
 const MapEvents = ({ onBoundsChange }: { onBoundsChange: () => void }) => {
   useMapEvents({
@@ -107,6 +148,11 @@ const MapPublic = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
+  const [districtFilter, setDistrictFilter] = useState<string>("ALL");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+  const [categories, setCategories] = useState<string[]>([...defaultCategories]);
+  const [districts, setDistricts] = useState<string[]>([]);
   const mapRef = useRef<L.Map | null>(null);
   const debounceRef = useRef<number | null>(null);
   const inFlightRef = useRef(false);
@@ -128,14 +174,52 @@ const MapPublic = () => {
     lastError?: string;
   }>({ mapReady: false });
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const pointItems = useMemo(
+    () => items.filter((item) => item.type !== "cluster"),
+    [items],
+  );
+  const clusterItems = useMemo(
+    () => items.filter((item) => item.type === "cluster"),
+    [items],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadConfig = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/config/public`, {
+          credentials: "include",
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const payload = (await response.json()) as {
+          reportCategories?: string[];
+          districts?: string[];
+        };
+        if (payload.reportCategories?.length) {
+          setCategories(payload.reportCategories);
+        }
+        if (payload.districts?.length) {
+          setDistricts(payload.districts);
+        }
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+      }
+    };
+
+    loadConfig();
+    return () => controller.abort();
+  }, []);
 
   const fetchMarkers = useCallback(async () => {
     if (!mapRef.current) {
       console.log("[Map] mapRef no listo");
       return;
     }
-    const bounds = mapRef.current.getBounds();
-    const size = mapRef.current.getSize();
+    const map = mapRef.current;
+    const bounds = map.getBounds();
+    const size = map.getSize();
     if (!bounds.isValid() || size.x === 0 || size.y === 0) {
       return;
     }
@@ -153,6 +237,33 @@ const MapPublic = () => {
     ) {
       return;
     }
+
+    const getTilesForBounds = (zoomLevel: number) => {
+      const n = Math.pow(2, zoomLevel);
+      let minX = clamp(lng2tile(west, zoomLevel), 0, n - 1);
+      let maxX = clamp(lng2tile(east, zoomLevel), 0, n - 1);
+      let minY = clamp(lat2tile(north, zoomLevel), 0, n - 1);
+      let maxY = clamp(lat2tile(south, zoomLevel), 0, n - 1);
+      if (minX > maxX) [minX, maxX] = [maxX, minX];
+      if (minY > maxY) [minY, maxY] = [maxY, minY];
+
+      const tiles: Array<{ x: number; y: number }> = [];
+      for (let x = minX; x <= maxX; x += 1) {
+        for (let y = minY; y <= maxY; y += 1) {
+          tiles.push({ x, y });
+        }
+      }
+      return tiles;
+    };
+
+    const mapZoom = Math.round(map.getZoom());
+    let tileZoom = Math.min(Math.max(mapZoom, 0), 18);
+    let tiles = getTilesForBounds(tileZoom);
+    while (tiles.length > 12 && tileZoom > 8) {
+      tileZoom -= 1;
+      tiles = getTilesForBounds(tileZoom);
+    }
+
     const boundsKey = [
       west.toFixed(5),
       south.toFixed(5),
@@ -161,21 +272,30 @@ const MapPublic = () => {
       categoryFilter,
       statusFilter,
       priorityFilter,
+      districtFilter,
+      fromDate,
+      toDate,
+      tileZoom,
     ].join("|");
     if (boundsKey === lastBoundsKeyRef.current) {
       return;
     }
-    const url = new URL(`${API_BASE}/api/reports/map`);
-    url.searchParams.set("minLng", west.toString());
-    url.searchParams.set("minLat", south.toString());
-    url.searchParams.set("maxLng", east.toString());
-    url.searchParams.set("maxLat", north.toString());
-    url.searchParams.set("limit", "2000");
-    if (categoryFilter !== "ALL") url.searchParams.set("category", categoryFilter);
-    if (statusFilter !== "ALL") url.searchParams.set("status", statusFilter);
-    if (priorityFilter !== "ALL") url.searchParams.set("priority", priorityFilter);
 
-    const debugUrl = url.toString();
+    const params = new URLSearchParams();
+    if (categoryFilter !== "ALL") params.set("category", categoryFilter);
+    if (statusFilter !== "ALL") params.set("status", statusFilter);
+    if (priorityFilter !== "ALL") params.set("priority", priorityFilter);
+    if (districtFilter !== "ALL") params.set("district", districtFilter);
+    if (fromDate) params.set("from", fromDate);
+    if (toDate) params.set("to", toDate);
+    const queryString = params.toString();
+    const tileUrls = tiles.map(
+      (tile) =>
+        `${API_BASE}/api/reports/map/tiles/${tileZoom}/${tile.x}/${tile.y}${
+          queryString ? `?${queryString}` : ""
+        }`,
+    );
+
     if (inFlightRef.current) {
       return;
     }
@@ -183,18 +303,33 @@ const MapPublic = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(debugUrl, { credentials: "include" });
-      if (!response.ok) {
-        throw new Error("No se pudieron cargar los reportes del mapa.");
-      }
-      const data = (await response.json()) as { items: MapItem[] };
-      setItems(data.items);
+      const responses = await Promise.all(
+        tileUrls.map((url) =>
+          fetch(url, { credentials: "include" }).then((response) => {
+            if (!response.ok) {
+              throw new Error("No se pudieron cargar los reportes del mapa.");
+            }
+            return response.json();
+          }),
+        ),
+      );
+      const combined = responses.flatMap((payload: { items?: MapItem[] }) =>
+        payload.items ?? [],
+      );
+      const deduped = new Map<string, MapItem>();
+      combined.forEach((item) => {
+        const key = `${item.type ?? "point"}-${item.id}-${item.lng}-${item.lat}`;
+        if (!deduped.has(key)) {
+          deduped.set(key, item);
+        }
+      });
+      setItems(Array.from(deduped.values()));
       lastBoundsKeyRef.current = boundsKey;
       setDebug((prev) => ({
         ...prev,
         lastFetchAt: new Date().toLocaleTimeString(),
-        lastUrl: debugUrl,
-        lastStatus: response.status,
+        lastUrl: tileUrls[0],
+        lastStatus: 200,
         lastError: undefined,
       }));
     } catch (err) {
@@ -203,7 +338,7 @@ const MapPublic = () => {
       setDebug((prev) => ({
         ...prev,
         lastFetchAt: new Date().toLocaleTimeString(),
-        lastUrl: debugUrl,
+        lastUrl: tileUrls[0],
         lastStatus: undefined,
         lastError: message,
       }));
@@ -211,7 +346,14 @@ const MapPublic = () => {
       setLoading(false);
       inFlightRef.current = false;
     }
-  }, [categoryFilter, statusFilter, priorityFilter]);
+  }, [
+    categoryFilter,
+    statusFilter,
+    priorityFilter,
+    districtFilter,
+    fromDate,
+    toDate,
+  ]);
 
   useEffect(() => {
     fetchRef.current = fetchMarkers;
@@ -229,7 +371,7 @@ const MapPublic = () => {
   useEffect(() => {
     lastBoundsKeyRef.current = null;
     fetchMarkers();
-  }, [categoryFilter, statusFilter, priorityFilter, fetchMarkers]);
+  }, [categoryFilter, statusFilter, priorityFilter, districtFilter, fromDate, toDate, fetchMarkers]);
 
   const handleMapReady = useCallback((map: L.Map) => {
     mapRef.current = map;
@@ -248,24 +390,35 @@ const MapPublic = () => {
     ],
     [],
   );
+  const categoryColors = useMemo(() => {
+    const colors: Record<string, string> = { ...defaultCategoryColors };
+    let paletteIndex = 0;
+    categories.forEach((category) => {
+      if (!colors[category]) {
+        colors[category] = fallbackPalette[paletteIndex % fallbackPalette.length];
+        paletteIndex += 1;
+      }
+    });
+    return colors;
+  }, [categories]);
 
-const categoryColors: Record<string, string> = {
-  BACHE: "#ef4444",
-  LUMINARIA: "#f59e0b",
-  VEREDA: "#10b981",
-  DRENAJE: "#3b82f6",
-};
+  const categoryLabels = useMemo(() => {
+    const labels: Record<string, string> = {};
+    categories.forEach((category) => {
+      labels[category] = labelForCategory(category);
+    });
+    return labels;
+  }, [categories]);
 
-const getPointColor = (category?: string) => {
-  return category ? categoryColors[category] ?? "#64748b" : "#64748b";
-};
+  const getPointColor = (category?: string) =>
+    category ? categoryColors[category] ?? "#64748b" : "#64748b";
 
-const categoryLabels: Record<string, string> = {
-  BACHE: "Bache",
-  LUMINARIA: "Luminaria",
-  VEREDA: "Vereda",
-  DRENAJE: "Drenaje",
-};
+  const getClusterColor = (count = 0) => {
+    if (count >= 50) return "#ef4444";
+    if (count >= 20) return "#f59e0b";
+    if (count >= 10) return "#0ea5e9";
+    return "#64748b";
+  };
 
   const focusReport = useCallback(
     async (reportId: string, email?: string) => {
@@ -366,6 +519,9 @@ const categoryLabels: Record<string, string> = {
     };
   }, [isFullscreen]);
 
+  const pointCount = pointItems.length;
+  const clusterCount = clusterItems.length;
+
   return (
     <div
       className={`relative flex flex-col gap-6 map-public-bg ${
@@ -386,7 +542,7 @@ const categoryLabels: Record<string, string> = {
         <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="rounded-[1.25rem] border border-[var(--ct-border)] bg-white px-4 py-4">
             
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]">
                 Categorias
                 <select
@@ -397,7 +553,7 @@ const categoryLabels: Record<string, string> = {
                   <option value="ALL">Todas</option>
                   {categories.map((category) => (
                     <option key={category} value={category}>
-                      {categoryLabels[category]}
+                      {categoryLabels[category] ?? category}
                     </option>
                   ))}
                 </select>
@@ -434,6 +590,39 @@ const categoryLabels: Record<string, string> = {
                   ))}
                 </select>
               </label>
+              <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]">
+                Distrito
+                <select
+                  value={districtFilter}
+                  onChange={(event) => setDistrictFilter(event.target.value)}
+                  className="w-full rounded-2xl border border-[var(--ct-border)] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]"
+                >
+                  <option value="ALL">Todos</option>
+                  {districts.map((district) => (
+                    <option key={district} value={district}>
+                      {district}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]">
+                Desde
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(event) => setFromDate(event.target.value)}
+                  className="w-full rounded-2xl border border-[var(--ct-border)] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]"
+                />
+              </label>
+              <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]">
+                Hasta
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(event) => setToDate(event.target.value)}
+                  className="w-full rounded-2xl border border-[var(--ct-border)] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]"
+                />
+              </label>
             </div>
           </div>
           <div className="rounded-[1.25rem] border border-[var(--ct-border)] bg-white/95 px-4 py-4 text-xs text-[var(--ct-ink-muted)]">
@@ -445,9 +634,9 @@ const categoryLabels: Record<string, string> = {
                 <div key={category} className="flex items-center gap-2">
                   <span
                     className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: categoryColors[category] }}
+                    style={{ backgroundColor: categoryColors[category] ?? "#64748b" }}
                   />
-                  <span>{categoryLabels[category]}</span>
+                  <span>{categoryLabels[category] ?? category}</span>
                 </div>
               ))}
             </div>
@@ -498,7 +687,26 @@ const categoryLabels: Record<string, string> = {
             />
             <MapReady onReady={handleMapReady} />
             <MapEvents onBoundsChange={scheduleFetch} />
-            {items.map((item) => {
+            {clusterItems.map((item) => (
+              <Marker
+                key={`cluster-${item.id}-${item.lng}-${item.lat}`}
+                position={[item.lat, item.lng]}
+                icon={labelIcon(
+                  `${item.count ?? 0}`,
+                  getClusterColor(item.count ?? 0),
+                )}
+                eventHandlers={{
+                  click: () => {
+                    const map = mapRef.current;
+                    if (!map) return;
+                    const nextZoom = Math.min(map.getZoom() + 2, 18);
+                    map.setView([item.lat, item.lng], nextZoom);
+                    scheduleFetch();
+                  },
+                }}
+              />
+            ))}
+            {pointItems.map((item) => {
               const color = getPointColor(item.category);
               const size =
                 item.effectivePriority === "CRITICAL"
@@ -529,7 +737,7 @@ const categoryLabels: Record<string, string> = {
                 />
               );
             })}
-            {items
+            {pointItems
               .filter((item) => item.id === hoveredId || item.id === activeHaloId)
               .map((item) => (
                 <CircleMarker
@@ -558,7 +766,11 @@ const categoryLabels: Record<string, string> = {
         {!isFullscreen && (
           <>
             <div className="mt-3 text-xs text-[var(--ct-ink-muted)]">
-              {loading ? "Cargando reportes..." : `Mostrando ${items.length} reportes`}
+              {loading
+                ? "Cargando reportes..."
+                : `Mostrando ${pointCount} reportes${
+                    clusterCount ? ` en ${clusterCount} clusters` : ""
+                  }`}
             </div>
             {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
             {import.meta.env.DEV && debug.lastError && (
@@ -582,7 +794,9 @@ const categoryLabels: Record<string, string> = {
             Cerrar
           </button>
           <p className="mt-2 text-lg font-semibold text-[var(--ct-ink)]">
-            {selectedItem.category ?? "Incidencia"}
+            {selectedItem.category
+              ? categoryLabels[selectedItem.category] ?? selectedItem.category
+              : "Incidencia"}
           </p>
           <p className="mt-1">Estado: {selectedItem.status ?? "N/D"}</p>
           <div className="mt-2">
@@ -682,7 +896,7 @@ const categoryLabels: Record<string, string> = {
                     <option value="ALL">Todas</option>
                     {categories.map((category) => (
                       <option key={category} value={category}>
-                        {categoryLabels[category]}
+                        {categoryLabels[category] ?? category}
                       </option>
                     ))}
                   </select>
@@ -719,6 +933,39 @@ const categoryLabels: Record<string, string> = {
                     ))}
                   </select>
                 </label>
+                <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]">
+                  Distrito
+                  <select
+                    value={districtFilter}
+                    onChange={(event) => setDistrictFilter(event.target.value)}
+                    className="w-full rounded-2xl border border-[var(--ct-border)] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]"
+                  >
+                    <option value="ALL">Todos</option>
+                    {districts.map((district) => (
+                      <option key={district} value={district}>
+                        {district}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]">
+                  Desde
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(event) => setFromDate(event.target.value)}
+                    className="w-full rounded-2xl border border-[var(--ct-border)] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]"
+                  />
+                </label>
+                <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]">
+                  Hasta
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(event) => setToDate(event.target.value)}
+                    className="w-full rounded-2xl border border-[var(--ct-border)] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]"
+                  />
+                </label>
               </div>
             </div>
             <div className="rounded-[1.25rem] border border-[var(--ct-border)] bg-white/95 px-4 py-4 text-xs text-[var(--ct-ink-muted)] shadow-[0_14px_40px_-30px_rgba(0,0,0,0.45)] backdrop-blur">
@@ -730,9 +977,9 @@ const categoryLabels: Record<string, string> = {
                   <div key={category} className="flex items-center gap-2">
                     <span
                       className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: categoryColors[category] }}
+                      style={{ backgroundColor: categoryColors[category] ?? "#64748b" }}
                     />
-                    <span>{categoryLabels[category]}</span>
+                    <span>{categoryLabels[category] ?? category}</span>
                   </div>
                 ))}
               </div>

@@ -18,6 +18,8 @@ const MyReports = () => {
   const [items, setItems] = useState<ReportItem[]>([]);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const categories = Array.from(new Set(items.map((item) => item.category)));
   const statuses = Array.from(new Set(items.map((item) => item.status)));
@@ -25,6 +27,15 @@ const MyReports = () => {
   const filteredItems = items.filter((item) => {
     if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
     if (categoryFilter !== "ALL" && item.category !== categoryFilter) return false;
+
+    if (fromDate) {
+      const from = new Date(`${fromDate}T00:00:00`);
+      if (new Date(item.createdAt) < from) return false;
+    }
+    if (toDate) {
+      const to = new Date(`${toDate}T23:59:59.999`);
+      if (new Date(item.createdAt) > to) return false;
+    }
     return true;
   });
 
@@ -108,6 +119,24 @@ const MyReports = () => {
             </option>
           ))}
         </select>
+        <label className="flex items-center gap-2 rounded-full border border-[var(--ct-border)] bg-white px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]">
+          Desde
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(event) => setFromDate(event.target.value)}
+            className="bg-transparent text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]"
+          />
+        </label>
+        <label className="flex items-center gap-2 rounded-full border border-[var(--ct-border)] bg-white px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]">
+          Hasta
+          <input
+            type="date"
+            value={toDate}
+            onChange={(event) => setToDate(event.target.value)}
+            className="bg-transparent text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]"
+          />
+        </label>
       </div>
 
       <div className="space-y-4">

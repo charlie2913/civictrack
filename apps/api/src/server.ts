@@ -15,6 +15,8 @@ import { uploadsPath } from "./modules/reports/uploads";
 import { requireAuth, requireRole } from "./middleware/auth";
 import {
   getAdminMetricsSummary,
+  getAdminHotspots,
+  getAdminBacklogMetrics,
   listAdminMapReports,
   listAdminReports,
 } from "./modules/reports/report.controller";
@@ -60,6 +62,18 @@ app.get(
   requireAuth,
   requireRole("ADMIN", "OPERATOR", "SUPERVISOR"),
   getAdminMetricsSummary,
+);
+app.get(
+  "/api/admin/metrics/hotspots",
+  requireAuth,
+  requireRole("ADMIN", "OPERATOR", "SUPERVISOR"),
+  getAdminHotspots,
+);
+app.get(
+  "/api/admin/metrics/backlog",
+  requireAuth,
+  requireRole("ADMIN", "OPERATOR", "SUPERVISOR"),
+  getAdminBacklogMetrics,
 );
 app.use("/api/admin/users", adminUsersRoutes);
 

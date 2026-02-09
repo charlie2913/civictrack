@@ -10,6 +10,8 @@ type ReportItem = {
   createdAt: string;
   addressText?: string;
   effectivePriority?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  district?: string;
+  ageDays?: number;
 };
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
@@ -22,6 +24,12 @@ const AdminInbox = () => {
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [priorityFilter, setPriorityFilter] = useState("ALL");
   const [query, setQuery] = useState("");
+  const [districtFilter, setDistrictFilter] = useState("ALL");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [backlogOnly, setBacklogOnly] = useState(false);
+  const [minAgeDays, setMinAgeDays] = useState("");
+  const [districts, setDistricts] = useState<string[]>([]);
 
   const categories = useMemo(
     () => Array.from(new Set(items.map((item) => item.category))),
@@ -41,6 +49,17 @@ const AdminInbox = () => {
       if (categoryFilter !== "ALL") url.searchParams.set("category", categoryFilter);
       if (query.trim()) url.searchParams.set("q", query.trim());
       if (priorityFilter !== "ALL") url.searchParams.set("priority", priorityFilter);
+      if (districtFilter !== "ALL") url.searchParams.set("district", districtFilter);
+      if (fromDate) url.searchParams.set("from", fromDate);
+      if (toDate) url.searchParams.set("to", toDate);
+      if (backlogOnly) {
+        url.searchParams.set("backlog", "true");
+        url.searchParams.set("sort", "age");
+      }
+      if (minAgeDays.trim()) {
+        url.searchParams.set("minAgeDays", minAgeDays.trim());
+        url.searchParams.set("sort", "age");
+      }
 
       const response = await fetch(url.toString(), {
         credentials: "include",
@@ -73,7 +92,36 @@ const AdminInbox = () => {
 
     load();
     return () => controller.abort();
-  }, [statusFilter, categoryFilter, priorityFilter, query]);
+  }, [
+    statusFilter,
+    categoryFilter,
+    priorityFilter,
+    query,
+    districtFilter,
+    fromDate,
+    toDate,
+    backlogOnly,
+    minAgeDays,
+  ]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const loadConfig = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/admin/config`, {
+          credentials: "include",
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const data = (await response.json()) as { districts?: string[] };
+        setDistricts(data.districts ?? []);
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+      }
+    };
+    loadConfig();
+    return () => controller.abort();
+  }, []);
 
   if (loading) {
     return (
@@ -147,6 +195,50 @@ const AdminInbox = () => {
         />
       </div>
 
+      <div className="flex flex-wrap gap-3">
+        <select
+          value={districtFilter}
+          onChange={(event) => setDistrictFilter(event.target.value)}
+          className="rounded-full border border-[var(--ct-border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]"
+        >
+          <option value="ALL">Todos los distritos</option>
+          {districts.map((district) => (
+            <option key={district} value={district}>
+              {district}
+            </option>
+          ))}
+        </select>
+        <input
+          type="date"
+          value={fromDate}
+          onChange={(event) => setFromDate(event.target.value)}
+          className="rounded-full border border-[var(--ct-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ct-ink-muted)]"
+        />
+        <input
+          type="date"
+          value={toDate}
+          onChange={(event) => setToDate(event.target.value)}
+          className="rounded-full border border-[var(--ct-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ct-ink-muted)]"
+        />
+        <input
+          type="number"
+          min={0}
+          placeholder="Antiguedad (dias)"
+          value={minAgeDays}
+          onChange={(event) => setMinAgeDays(event.target.value)}
+          className="w-[180px] rounded-full border border-[var(--ct-border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ct-ink-muted)]"
+        />
+        <label className="flex items-center gap-2 rounded-full border border-[var(--ct-border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]">
+          <input
+            type="checkbox"
+            checked={backlogOnly}
+            onChange={(event) => setBacklogOnly(event.target.checked)}
+            className="h-4 w-4 accent-[var(--ct-accent)]"
+          />
+          Backlog abierto
+        </label>
+      </div>
+
       <div className="space-y-4">
         {items.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[var(--ct-border)] bg-[var(--ct-accent-soft)]/40 px-6 py-8 text-center text-sm text-[var(--ct-ink-muted)]">
@@ -168,6 +260,16 @@ const AdminInbox = () => {
                 <PriorityBadge priority={item.effectivePriority} />
               </div>
               {item.addressText && <p className="mt-2">{item.addressText}</p>}
+              {item.district && (
+                <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]">
+                  Distrito: {item.district}
+                </p>
+              )}
+              {typeof item.ageDays === "number" && (
+                <p className="mt-1 text-xs text-[var(--ct-ink-muted)]">
+                  Antiguedad: {item.ageDays} dias
+                </p>
+              )}
               <p className="mt-2 text-xs">
                 {new Date(item.createdAt).toLocaleString()}
               </p>

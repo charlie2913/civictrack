@@ -20,6 +20,7 @@ router.get("/config/public", async (_req, res) => {
   const config = await ensureConfig();
   return res.json({
     reportCategories: config.reportCategories,
+    districts: config.districts,
     photoMaxFiles: config.photoMaxFiles,
     photoMaxMb: config.photoMaxMb,
     mapMaxPoints: config.mapMaxPoints,
@@ -43,6 +44,7 @@ router.patch(
   async (req, res) => {
     const body = req.body as {
       reportCategories?: string[];
+      districts?: string[];
       photoMaxFiles?: number;
       photoMaxMb?: number;
       mapMaxPoints?: number;
@@ -59,6 +61,16 @@ router.patch(
         return res.status(400).json({ error: "reportCategories invalido" });
       }
       updates.reportCategories = body.reportCategories;
+    }
+
+    if (body.districts !== undefined) {
+      if (!Array.isArray(body.districts)) {
+        return res.status(400).json({ error: "districts invalido" });
+      }
+      const sanitized = body.districts
+        .map((item) => (typeof item === "string" ? item.trim().toUpperCase() : ""))
+        .filter(Boolean);
+      updates.districts = sanitized;
     }
 
     if (body.photoMaxFiles !== undefined) {

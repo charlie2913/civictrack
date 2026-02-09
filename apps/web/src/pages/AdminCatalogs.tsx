@@ -6,6 +6,7 @@ const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
 
 type ConfigResponse = {
   reportCategories: string[];
+  districts: string[];
 };
 
 const AdminCatalogs = () => {
@@ -15,6 +16,10 @@ const AdminCatalogs = () => {
   const [categories, setCategories] = useState<string[]>([]);
   const [newCategory, setNewCategory] = useState("");
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [newDistrict, setNewDistrict] = useState("");
+  const [removeDistrictTarget, setRemoveDistrictTarget] = useState<string | null>(null);
+  const [districtSuccess, setDistrictSuccess] = useState<string | null>(null);
 
   const loadConfig = async () => {
     setLoading(true);
@@ -28,6 +33,7 @@ const AdminCatalogs = () => {
       }
       const data = (await response.json()) as ConfigResponse;
       setCategories(data.reportCategories ?? []);
+      setDistricts(data.districts ?? []);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error inesperado";
       setError(message);
@@ -43,6 +49,7 @@ const AdminCatalogs = () => {
   const handleSave = async () => {
     setError(null);
     setSuccess(null);
+    setDistrictSuccess(null);
     try {
       const response = await fetch(`${API_BASE}/api/admin/config`, {
         method: "PATCH",
@@ -68,6 +75,41 @@ const AdminCatalogs = () => {
     if (categories.includes(value)) return;
     setCategories((prev) => [...prev, value]);
     setNewCategory("");
+  };
+
+  const handleSaveDistricts = async () => {
+    setError(null);
+    setDistrictSuccess(null);
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/config`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ districts }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "No se pudo guardar.");
+      }
+      setDistricts(payload.districts ?? districts);
+      setDistrictSuccess("Distritos guardados.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error inesperado";
+      setError(message);
+    }
+  };
+
+  const handleAddDistrict = () => {
+    const value = newDistrict.trim().toUpperCase();
+    if (!value) return;
+    if (districts.includes(value)) return;
+    setDistricts((prev) => [...prev, value]);
+    setNewDistrict("");
+  };
+
+  const handleRemoveDistrict = (district: string) => {
+    setDistricts((prev) => prev.filter((item) => item !== district));
+    setRemoveDistrictTarget(null);
   };
 
   const handleRemove = (category: string) => {
@@ -154,6 +196,58 @@ const AdminCatalogs = () => {
         )}
       </div>
 
+      <div className="rounded-2xl border border-[var(--ct-border)] bg-white/90 p-6 text-sm text-[var(--ct-ink-muted)] shadow-[0_18px_50px_-40px_rgba(0,0,0,0.45)]">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex-1 text-xs font-semibold uppercase tracking-[0.2em]">
+            Nuevo distrito
+            <input
+              type="text"
+              value={newDistrict}
+              onChange={(event) => setNewDistrict(event.target.value)}
+              className="mt-2 w-full rounded-2xl border border-[var(--ct-border)] px-4 py-3 text-sm"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={handleAddDistrict}
+            className="rounded-full border border-[var(--ct-border)] px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]"
+          >
+            Agregar
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveDistricts}
+            className="rounded-full bg-[var(--ct-accent)] px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[var(--ct-accent-strong)]"
+          >
+            Guardar
+          </button>
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {districts.map((district) => (
+            <div
+              key={district}
+              className="flex items-center justify-between rounded-2xl border border-[var(--ct-border)] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em]"
+            >
+              <span>{district}</span>
+              <button
+                type="button"
+                onClick={() => setRemoveDistrictTarget(district)}
+                className="rounded-full border border-[var(--ct-border)] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-[var(--ct-ink-muted)]"
+              >
+                Quitar
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {districtSuccess && (
+          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ct-accent-strong)]">
+            {districtSuccess}
+          </p>
+        )}
+      </div>
+
       <Modal
         open={!!removeTarget}
         title="Eliminar categoria"
@@ -163,6 +257,18 @@ const AdminCatalogs = () => {
         secondaryLabel="Cancelar"
         onPrimary={() => {
           if (removeTarget) handleRemove(removeTarget);
+        }}
+        intent="warning"
+      />
+      <Modal
+        open={!!removeDistrictTarget}
+        title="Eliminar distrito"
+        description="Confirma que deseas eliminar este distrito."
+        onClose={() => setRemoveDistrictTarget(null)}
+        primaryLabel="Eliminar"
+        secondaryLabel="Cancelar"
+        onPrimary={() => {
+          if (removeDistrictTarget) handleRemoveDistrict(removeDistrictTarget);
         }}
         intent="warning"
       />

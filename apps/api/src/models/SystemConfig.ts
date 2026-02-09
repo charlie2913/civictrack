@@ -1,6 +1,17 @@
 import { Schema, model, type InferSchemaType } from "mongoose";
 
 export const defaultReportCategories = ["BACHE", "LUMINARIA", "VEREDA", "DRENAJE"] as const;
+export const defaultDistricts = [
+  "CENTRO",
+  "COTAHUMA",
+  "MAX PAREDES",
+  "PERIFERICA",
+  "SAN ANTONIO",
+  "SUR",
+  "MALLASA",
+  "ZONGO",
+  "HAMPATURI",
+] as const;
 export const defaultNotificationEvents = [
   "STATUS_SCHEDULED",
   "STATUS_RESOLVED",
@@ -13,6 +24,10 @@ const systemConfigSchema = new Schema(
     reportCategories: {
       type: [String],
       default: [...defaultReportCategories],
+    },
+    districts: {
+      type: [String],
+      default: [...defaultDistricts],
     },
     photoMaxFiles: { type: Number, default: 5 },
     photoMaxMb: { type: Number, default: 5 },
